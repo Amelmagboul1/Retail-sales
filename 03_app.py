@@ -1,15 +1,23 @@
 import streamlit as st
 import pandas as pd
 
-st.title("Retail Store Sales Dashboard")
 
 df = pd.read_csv("04_retail_store_sales.csv")
-
-
-st.subheader("Dataset Preview")
-st.dataframe(df.head())
-
 df_cleancopy = df.copy()
+st.sidebar.title("Navigation")
+page = st.sidebar.radio(
+    "Go to",
+    ["Overview", "Plots", "Insights"]
+)
+min_spent = int(df_cleancopy["Total Spent"].min())
+max_spent = int(df_cleancopy["Total Spent"].max())
+
+spent_range = st.sidebar.slider(
+    "Total Spent Range",
+    min_value=min_spent,
+    max_value=max_spent,
+    value=(min_spent, max_spent)
+)
 st.sidebar.header("Filters")
 
 category_filter = st.sidebar.multiselect(
@@ -28,112 +36,110 @@ filtered_df = df_cleancopy[
     (df_cleancopy["Category"].isin(category_filter)) &
     (df_cleancopy["Payment Method"].isin(payment_filter))
 ]
+if page == "Overview":
+   st.title("Retail Store Sales Dashboard")
 
-st.header("Data Cleaning")
+   st.markdown("### Interactive Retail Sales Analysis Dashboard")
+   st.write("Use the filters on the left to explore sales performance, customer behavior, and product trends.")
+   st.header("Dataset Preview")
+   st.dataframe(df_cleancopy.head())
 
-df_cleancopy['Transaction Date'] = pd.to_datetime(df_cleancopy['Transaction Date'], errors='coerce')
+   st.subheader("Key Metrics")
 
-st.success("Data loaded successfully!")
+   col1, col2, col3 = st.columns(3)
+
+   total_revenue = filtered_df["Total Spent"].sum()
+   total_transactions = filtered_df["Transaction ID"].nunique()
+   avg_order_value = filtered_df["Total Spent"].mean()
+
+   col1.metric("Total Revenue", f"${total_revenue:,.2f}")
+   col2.metric("Total Transactions", total_transactions)
+   col3.metric("Average Order Value", f"${avg_order_value:,.2f}")
+
+   st.header("Explore Transactions")
+   st.dataframe(filtered_df)
 import matplotlib.pyplot as plt
-
-st.subheader("Key Metrics")
-
-col1, col2, col3 = st.columns(3)
-
-total_revenue = filtered_df["Total Spent"].sum()
-total_transactions = filtered_df["Transaction ID"].nunique()
-avg_order_value = filtered_df["Total Spent"].mean()
-
-
-col1.metric("Total Revenue", f"${total_revenue:,.2f}")
-col2.metric("Total Transactions", total_transactions)
-col3.metric("Average Order Value", f"${avg_order_value:,.2f}")
-
-st.header("Total Spending Distribution")
-
-fig, ax = plt.subplots()
-ax.hist(df_cleancopy['Total Spent'], bins=20)
-ax.set_xlabel("Total Spent")
-ax.set_ylabel("Frequency")
-
-st.pyplot(fig)
-
-
-st.subheader("Monthly Sales Trend")
-
-
-monthly_sales = filtered_df.groupby(
-    df_cleancopy["Transaction Date"].dt.to_period("M")
-)["Total Spent"].sum()
-
-monthly_sales.index = monthly_sales.index.astype(str)
-
-st.line_chart(monthly_sales)
-
 import seaborn as sns
+  
+if page == "Plots":
+    st.header("Explore univariate, bivariate, and multivariate relationships in the retail dataset.")
 
-st.header("Correlation Between Numerical Features")
+    tab1, tab2, tab3 = st.tabs([
+        "Univariate Analysis",
+        "Bivariate Analysis",
+        "Multivariate Analysis"
+    ])
+    with tab1:
 
-corr = df_cleancopy[['Price Per Unit','Quantity','Total Spent']].corr()
+        st.subheader("Total Spending Distribution")
 
-fig, ax = plt.subplots()
-sns.heatmap(corr, annot=True, cmap="coolwarm", ax=ax)
+        fig, ax = plt.subplots()
+        ax.hist(filtered_df['Total Spent'], bins=20)
+        st.pyplot(fig)
 
-st.pyplot(fig)
+        st.subheader("Sales by Category")
 
-st.header("Sales by Category")
+        category_sales = filtered_df.groupby("Category")["Total Spent"].sum()
+        st.bar_chart(category_sales)
 
-category_sales = filtered_df.groupby("Category")["Total Spent"].sum().sort_values()
+        st.subheader("Payment Method Distribution")
 
-st.bar_chart(category_sales)
+        payment_counts = filtered_df["Payment Method"].value_counts()
+        st.bar_chart(payment_counts)
+        with tab2:
 
-st.header("Payment Method Distribution")
+         st.subheader("Average Transaction Value by Location")
 
-payment_counts = filtered_df["Payment Method"].value_counts()
+         avg_loc = filtered_df.groupby('Location')['Total Spent'].mean()
+         st.bar_chart(avg_loc)
 
-st.bar_chart(payment_counts)
+         st.subheader("Impact of Discounts on Spending")
 
+         discount_avg = filtered_df.groupby("Discount Applied")["Total Spent"].mean()
+         st.bar_chart(discount_avg)
 
+         st.subheader("Monthly Sales Trend")
 
-st.header("Average Transaction Value by Location")
+         filtered_df["Transaction Date"] = pd.to_datetime(filtered_df["Transaction Date"])
 
-avg_loc = df_cleancopy.groupby('Location')['Total Spent'].mean()
+         Yearly_sales = filtered_df.groupby(
+            filtered_df["Transaction Date"].dt.to_period("Y")
+         )["Total Spent"].sum()
 
-st.bar_chart(avg_loc)
+         Yearly_sales.index = Yearly_sales.index.astype(str)
 
-st.header("Impact of Discounts on Spending")
+         st.line_chart(Yearly_sales)
+        with tab3:
 
-discount_avg = df_cleancopy.groupby("Discount Applied")["Total Spent"].mean()
+         st.subheader("Correlation Heatmap")
 
-st.bar_chart(discount_avg)
+         corr = filtered_df[['Price Per Unit','Quantity','Total Spent']].corr()
 
-st.header("Top 10 Selling Items")
+         fig, ax = plt.subplots(figsize=(8,5))
+         sns.heatmap(corr, annot=True, cmap="coolwarm", ax=ax)
+         st.pyplot(fig)
 
-top_items = (
-    df_cleancopy[df_cleancopy["Item"] != "Unknown"]
-    .groupby("Item")["Total Spent"]
-    .sum()
-    .sort_values(ascending=False)
-    .head(10)
-)
+         st.subheader("Top 10 Selling Items")
 
-st.bar_chart(top_items)
+         top_items = (
+            filtered_df[filtered_df["Item"] != "Unknown"]
+            .groupby("Item")["Total Spent"]
+            .sum()
+            .sort_values(ascending=False)
+            .head(10)
+        )
 
-st.header("Explore Transactions")
+         st.bar_chart(top_items)
+if page == "Insights":
+   st.header("Summary of the most important findings from the retail sales analysis.")
+   st.header("Key Insights")
+   st.write("""
+    • Quantity is the strongest driver of revenue.
 
-st.dataframe(filtered_df)
+    • Online purchases generate slightly higher transaction values than in-store.
 
-st.header("Key Insights")
+    • Discounts have minimal effect on customer spending behavior.
 
-st.write("""
-• Quantity is the strongest driver of revenue.
-
-• Online purchases generate slightly higher transaction values than in-store.
-
-• Discounts have minimal effect on customer spending behavior.
-
-• Revenue is driven by transaction volume rather than price increases.
-""")
-
-
+    • Revenue is driven primarily by transaction volume rather than price increases.
+    """)
 
