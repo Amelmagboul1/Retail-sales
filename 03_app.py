@@ -34,7 +34,8 @@ payment_filter = st.sidebar.multiselect(
 
 filtered_df = df_cleancopy[
     (df_cleancopy["Category"].isin(category_filter)) &
-    (df_cleancopy["Payment Method"].isin(payment_filter))
+    (df_cleancopy["Payment Method"].isin(payment_filter)) &
+    (df_cleancopy["Total Spent"].between(spent_range[0], spent_range[1]))
 ]
 if page == "Overview":
    st.title("Retail Store Sales Dashboard")
@@ -42,7 +43,7 @@ if page == "Overview":
    st.markdown("### Interactive Retail Sales Analysis Dashboard")
    st.write("Use the filters on the left to explore sales performance, customer behavior, and product trends.")
    st.header("Dataset Preview")
-   st.dataframe(df_cleancopy.head())
+   st.dataframe(filtered_df.head())
 
    st.subheader("Key Metrics")
 
